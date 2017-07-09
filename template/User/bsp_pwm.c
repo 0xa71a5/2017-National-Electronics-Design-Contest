@@ -223,7 +223,7 @@ static void TIM4_PWMOUTPUT_Config(void)
   /* PWM1 Mode configuration: Channel1 */
   TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;     //配置为PWM模式1
   TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable; 
-  TIM_OCInitStructure.TIM_Pulse = 0;//300/1000占空比   TIM3->CCR1 = TIM_OCInitStruct->TIM_Pulse;
+  TIM_OCInitStructure.TIM_Pulse = 100;//300/1000占空比   TIM3->CCR1 = TIM_OCInitStruct->TIM_Pulse;
   TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;     //当定时器计数值小于CCR1_Val时为高电平
   TIM_OC1Init(TIM4, &TIM_OCInitStructure);   //使能通道1  
   /*使能通道1重载*/

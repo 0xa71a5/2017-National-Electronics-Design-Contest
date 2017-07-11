@@ -6,74 +6,57 @@
 #include "bsp_tim2.h"
 #include "bsp_tim3.h"
 #include "bsp_pwm.h"
-#include "bsp_usart.h"
+#include "serial.h"
 #include "tm1638.h"
+#include "stepper.h"
 
 u32 i;
 char display[20];
+char buffer[20];
 
-#define Stepper_Dir(x)	PDout(3)=x
-#define Stepper_En(x) PDout(7)=x
+extern int32_t Stepper1_Steps;
+extern int32_t Stepper2_Steps;
+extern uint8_t ledState;
 
-void Stepper_Init()
+void Command_Handler(char* command)
 {
-	GPIO_InitTypeDef GPIO_InitStructure;
-	RCC_AHB1PeriphClockCmd ( RCC_AHB1Periph_GPIOA|RCC_AHB1Periph_GPIOB|RCC_AHB1Periph_GPIOC| RCC_AHB1Periph_GPIOD|RCC_AHB1Periph_GPIOE, ENABLE); 
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3|GPIO_Pin_7;	
-	/*设置引脚模式为输出模式*/
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;  
-	/*设置引脚的输出类型为推挽输出*/
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	/*设置引脚为上拉模式*/
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-	/*设置引脚速率为2MHz */   
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz; 
-	/*调用库函数，使用上面配置的GPIO_InitStructure初始化GPIO*/
-	GPIO_Init(GPIOD, &GPIO_InitStructure);	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;  
-	/*设置引脚的输出类型为推挽输出*/
-	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-	/*设置引脚为上拉模式*/
-	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-	/*设置引脚速率为2MHz */   
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz; 
-	GPIO_Init(GPIOE, &GPIO_InitStructure);	//PE2
-	Stepper_Dir(1);
-	Stepper_En(0);
+	printf("Command=[%s]\n",command);
 }
-
 
 
 int main(void)
 {
+	char data;
+	#define BUFFER_SIZE 20
+	char buffer[BUFFER_SIZE];
+	u16 b_index=0;
+
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);//Init nvic priority group.16 preemption priorities.
 	SysTick_Init();//1us precision
 	ILI9806G_Init();//Init lcd screen
 	LED_Init();
-	//TIM7_Configuration();
-	//EXTI_Config();
-	//TIM3_Configuration();
+	
 	Stepper_Init();
-	//TIM3_PWM_Configuration();
-	//TIM4_PWM_Configuration();
 	Serial_Init(115200);
-	Stepper_En(1);
-	Stepper_Dir(1);
-	printf("Running...");
-	for(i=0;i<2000;i++)
-	{
-		PEout(2)=0;
-		delay_us(500);
-		PEout(2)=1;
-		delay_us(500);	
-	}
-	Stepper_En(0);
 	while(1)
 	{
-
+		while(Serial_Available())
+		{
+			data=Serial_Read();
+			delay(2);
+			buffer[b_index++]=data;
+		}
+		if(b_index!=0)
+		{
+			buffer[b_index]='\0';
+			Command_Handler(buffer);
+			b_index=0;
+		}
 	}
-} 
+}
+
+
+
 
 /*********************************************END OF FILE**********************/
 

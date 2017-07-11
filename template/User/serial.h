@@ -1,5 +1,5 @@
-#ifndef __DEBUG_USART_H
-#define	__DEBUG_USART_H
+#ifndef __SERIAL_H
+#define	__SERIAL_H
 
 #include "stm32f4xx.h"
 #include <stdio.h>

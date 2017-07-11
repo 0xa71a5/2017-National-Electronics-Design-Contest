@@ -49,6 +49,8 @@ void SysTick_Init(void)
   */
 void delay_us(__IO u32 nTime)
 { 
+  //SysTick_Config(SystemCoreClock / 1000000);
+  SysTick->LOAD  = (uint32_t)(167); 
 	TimingDelay = nTime;	
 	SysTick->CTRL|=SysTick_CTRL_ENABLE_Msk;//打开systick计时器
 	while(TimingDelay != 0);
@@ -57,7 +59,9 @@ void delay_us(__IO u32 nTime)
 
 void delay(__IO u32 nTime)
 {
-	TimingDelay=nTime*1000;
+  //SysTick_Config(SystemCoreClock / 1000);  
+  SysTick->LOAD  = (uint32_t)(167999); 
+	TimingDelay=nTime;
 	SysTick->CTRL|=SysTick_CTRL_ENABLE_Msk;//打开systick计时器
 	while(TimingDelay!=0);
 	SysTick->CTRL&=~SysTick_CTRL_ENABLE_Msk;//关闭systick计时器

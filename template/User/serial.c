@@ -1,4 +1,4 @@
-#include "bsp_usart.h"
+#include "serial.h"
 struct FifoQueue MyQueue;
 
 uint8_t data;
@@ -104,7 +104,7 @@ void  Serial_Init(uint32_t speed)
   USART_Cmd(USART1, ENABLE);
 }
 
-uint8_t Serial_available()
+uint8_t Serial_Available()
 {
   if(MyQueue.count==0&&(MyQueue.front==MyQueue.rear))
     return 0;
@@ -112,13 +112,13 @@ uint8_t Serial_available()
     return 1;
 }
 
-uint8_t Serial_read()
+uint8_t Serial_Read()
 {
   QueueOut(&MyQueue,&data);
   return data;
 }
 
-void Serial_print(char *input)
+void Serial_Print(char *input)
 {
   uint16_t i=0;
   while(input[i]!='\0')

@@ -4,14 +4,15 @@
 #include "stm32f4xx.h"
 
 void Stepper_Init(void);
-void Stepper1_SetSpeed(u32 steps,u32 speed);
-void Stepper2_SetSpeed(u32 steps,u32 speed);
+void Stepper1_SetSpeed(s32 steps,u32 speed);
+void Stepper2_SetSpeed(s32 steps,u32 speed);
 void Stepper_Wait();
 
 /* 步进电机1 引脚定义 */
 #define Stepper1_Dir(x) PDout(3)=x
 #define Stepper1_En(x) PDout(7)=x
 #define Stepper1_Pulse(x) PEout(2)=x
+
 
 #define Stepper1_Dir_Clock RCC_AHB1Periph_GPIOD
 #define Stepper1_Dir_Pin     GPIO_Pin_3

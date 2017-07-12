@@ -15,7 +15,7 @@ const uint8_t tab2[] = {0x3F,0x06,0x5B,0x4F,0x66,0x6D,0x7D,0x07,0x7F,0x6F,0x77,0
 
 /* Private functions ---------------------------------------------------------*/
 
-void TM1638_Write(unsigned char DATA)   //写数据函数
+void TM1638_Write(unsigned char DATA)   //脨麓脢媒戮脻潞炉脢媒
 {
 	unsigned char i;
 	DIO_OUT;
@@ -32,7 +32,7 @@ void TM1638_Write(unsigned char DATA)   //写数据函数
 	}
 }
 
-unsigned char TM1638_Read(void)     //读数据函数
+unsigned char TM1638_Read(void)     //露脕脢媒戮脻潞炉脢媒
 {
 	unsigned char i;
 	unsigned char temp=0;
@@ -52,7 +52,7 @@ unsigned char TM1638_Read(void)     //读数据函数
 	return temp;
 }
 
-void Write_COM(unsigned char cmd)  //发送命令字
+void Write_COM(unsigned char cmd)  //路垄脣脥脙眉脕卯脳脰
 {
 	
 	CLK_high;
@@ -65,10 +65,10 @@ void Write_COM(unsigned char cmd)  //发送命令字
 }
 
 /*!
-*函数功能：读取按键值
-*输入参数：无
-*输出参数：无
-*返回值：  无
+*潞炉脢媒鹿娄脛脺拢潞露脕脠隆掳麓录眉脰碌
+*脢盲脠毛虏脦脢媒拢潞脦脼
+*脢盲鲁枚虏脦脢媒拢潞脦脼
+*路碌禄脴脰碌拢潞  脦脼
 */
 unsigned char Read_key(void)
 {
@@ -86,29 +86,29 @@ unsigned char Read_key(void)
 	
 	switch(i)
 	{
-		case 0x00020000:return 1;break;
-		case 0x00200000:return 2;break;
-		case 0x02000000:return 3;break;
-		case 0x20000000:return 4;break;
+		case 0x00020000:return 13;break;
+		case 0x00200000:return 14;break;
+		case 0x02000000:return 15;break;
+		case 0x20000000:return 16;break;
 		
-		case 0x00000002:return 5;break;
-		case 0x00000020:return 6;break;
-		case 0x00000200:return 7;break;
-		case 0x00002000:return 8;break;
+		case 0x00000002:return 9;break;
+		case 0x00000020:return 10;break;
+		case 0x00000200:return 11;break;
+		case 0x00002000:return 12;break;
 		
-		case 0x00040000:return 9;break;
-		case 0x00400000:return 10;break;
-		case 0x04000000:return 11;break;
-		case 0x40000000:return 12;break;
+		case 0x00040000:return 5;break;
+		case 0x00400000:return 6;break;
+		case 0x04000000:return 7;break;
+		case 0x40000000:return 8;break;
 		
-		case 0x00000004:return 13;break;
-		case 0x00000040:return 14;break;
-		case 0x00000400:return 15;break;
-		case 0x00004000:return 16;break;
+		case 0x00000004:return 1;break;
+		case 0x00000040:return 2;break;
+		case 0x00000400:return 3;break;
+		case 0x00004000:return 4;break;
 	}
 }
 
-void Write_DATA(unsigned char add,unsigned char DATA)  //指定地址写入数据
+void Write_DATA(unsigned char add,unsigned char DATA)  //脰赂露篓碌脴脰路脨麓脠毛脢媒戮脻
 {
 	Write_COM(0x44);
 	STB_low;
@@ -120,14 +120,23 @@ void Write_DATA(unsigned char add,unsigned char DATA)  //指定地址写入数据
 void init_TM1638(void)
 {
 	GPIO_InitTypeDef  GPIO_InitStructure;
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOE, ENABLE);	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11 | GPIO_Pin_10 | GPIO_Pin_9;	
+	RCC_AHB1PeriphClockCmd(STB_Clock|CLK_Clock|DIO_Clock, ENABLE);	
+	GPIO_InitStructure.GPIO_Pin = CLK_Pin;	
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
 	GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;			
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;	
 	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;		
-	GPIO_Init(GPIOE, &GPIO_InitStructure);			
-	GPIO_SetBits(GPIOE,GPIO_Pin_9 | GPIO_Pin_10 | GPIO_Pin_11);
+	GPIO_Init(CLK_Port, &GPIO_InitStructure);	
+	GPIO_SetBits(CLK_Port,CLK_Pin);
+
+	GPIO_InitStructure.GPIO_Pin = DIO_Pin;
+	GPIO_Init(DIO_Port, &GPIO_InitStructure);	
+	GPIO_SetBits(DIO_Port,DIO_Pin);
+
+	GPIO_InitStructure.GPIO_Pin = STB_Pin;
+	GPIO_Init(STB_Port, &GPIO_InitStructure);	
+	GPIO_SetBits(STB_Port,STB_Pin);
+
 	Write_allLED(0xff);
 	delay(100);
 	Write_allLED(0);
@@ -135,8 +144,8 @@ void init_TM1638(void)
 
 void  Write_allLED(unsigned char DATA){
 	unsigned char i;
-	Write_COM(0x8F);//显示控制
-	Write_COM(0x40); //数据命令
+	Write_COM(0x8F);
+	Write_COM(0x40);
 	STB_low;
 	TM1638_Write(0xc0);
 	for(i=0;i<16;i++)

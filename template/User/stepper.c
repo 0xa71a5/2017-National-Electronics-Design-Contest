@@ -60,53 +60,70 @@ void Stepper_Init()
     Stepper2_Pulse(1);
 
     TIM7_Configuration();//初始化定时器7 控制步进电机1
-    TIM2_Configuration();//初始化定时器2 控制步进电机2
+    TIM6_Configuration();//初始化定时器2 控制步进电机2
     TIM7->DIER &= (uint16_t)~TIM_IT_Update;//禁止中断7服务
-    TIM2->DIER &= (uint16_t)~TIM_IT_Update;//禁止中断2服务
+    TIM6->DIER &= (uint16_t)~TIM_IT_Update;//禁止中断6服务
 }
 
 void Stepper1_SetSpeed(s32 steps,u32 speed)
 {
-    //Stepper1_Speed(speed);
-		if(steps<0)
-		{
-			steps=-steps;
-			Stepper1_Dir(0);
-		}
-		else
-		{
-			Stepper1_Dir(1);
-		}
+    TIM7->DIER &= (uint16_t)~TIM_IT_Update;//禁止中断7服务
+    if(steps<0)
+    {
+    	steps=-steps;
+    	Stepper1_Dir(0);
+    }
+    else
+    {
+    	Stepper1_Dir(1);
+    }
     Stepper1_En(1);
     TIM7->ARR=speed;//设置转速为speed 单位us
     Stepper1_Steps=steps*2;//设置剩余步数为steps 脉冲数量是steps的两倍
     TIM7->DIER |= TIM_IT_Update;//使能中断7服务
-    
 }
 
+__IO u32 globalWaitTime=0;
 void Stepper2_SetSpeed(s32 steps,u32 speed)
 {
-		if(steps<0)
-		{
-			steps=-steps;
-			Stepper2_Dir(0);
-		}
-		else
-		{
-			Stepper2_Dir(1);
-		}
-		Stepper2_En(1);
-    TIM2->ARR=speed;//设置转速为speed 单位us
-    Stepper2_Steps=steps*2;//设置剩余步数为steps
-    TIM2->DIER |= TIM_IT_Update;//使能中断2服务
+	TIM6->DIER &= (uint16_t)~TIM_IT_Update;//禁止中断6服务
+    if(steps<0)
+    {
+        steps=-steps;
+        Stepper2_Dir(1);
+    }
+    else
+    {
+        Stepper2_Dir(0);
+    }
+    Stepper2_En(1);
+    TIM6->ARR=speed;//设置转速为speed 单位us
+    Stepper2_Steps=steps*2;//设置剩余步数为steps 脉冲数量是steps的两倍
+    TIM6->DIER |= TIM_IT_Update;//使能中断6服务
 }
 
+void do_nothing()
+{
+	int a=0;
+	a++;
+}
 void Stepper_Wait()
 {
-    while(Stepper1_Steps>0||Stepper2_Steps>0)
+    volatile u32 i,j;
+    while(!(Stepper1_Steps==0&&Stepper2_Steps==0))
+		//while(Stepper1_Steps!=0 || Stepper2_Steps!=0)
     {
-        //printf("M Steps1=%d ;Steps2=%d\n",Stepper1_Steps,Stepper2_Steps);
-        delay_us(50);
+			do_nothing();
+       // printf("%d:%d\n",Stepper1_Steps,Stepper2_Steps);
+      
+/*			globalWaitTime++;
+        
+        for(i=0;i<100;i++)//100us
+        {
+            for(j=0;j<20;j++)//约为1us
+                {}
+        }
+			*/
     }
 		#ifdef UNLOCK
 		Stepper1_En(0);
@@ -114,6 +131,8 @@ void Stepper_Wait()
 		#endif
     //TIM_ITConfig(TIM7,TIM_IT_Update,DISABLE);
     TIM7->DIER &= (uint16_t)~TIM_IT_Update;//禁止中断7服务
+    TIM6->DIER &= (uint16_t)~TIM_IT_Update;//禁止中断7服务
+		//TIM2->DIER &= (uint16_t)~TIM_IT_Update;//禁止中断7服务
 }
 
 
@@ -139,6 +158,7 @@ void TIM7_IRQHandler(void)//定时器7中断 控制Stepper1的脉冲
   }     
 }
 
+/*
 void  TIM2_IRQHandler(void)//定时器2中断 控制Stepper2的脉冲
 {
 //判断是否是TIM2中断
@@ -158,6 +178,29 @@ void  TIM2_IRQHandler(void)//定时器2中断 控制Stepper2的脉冲
 		}
 		#endif
     TIM2->SR = (uint16_t)~TIM_IT_Update; //清除中断位  
+  }     
+}
+*/
+
+void TIM6_DAC_IRQHandler(void)
+{
+ //判断是否是TIM7中断
+ if (((TIM6->SR & TIM_IT_Update) != 0 ) && ((TIM6->DIER & TIM_IT_Update) != 0))
+  { 
+    if(Stepper2_Steps>0)//判断当前是否运行步进  并且 步进剩余步数是否不为0
+    {
+        Stepper2_State=~Stepper2_State;//步进脉冲
+        Stepper2_Pulse(Stepper2_State);//步进脉冲
+        Stepper2_Steps--;//剩余步数自减
+        LED1_ON();//debug   
+    }
+        #ifdef UNLOCK
+        else
+        {       
+                Stepper2_En(0);//走完之后关闭电流
+        }
+        #endif
+    TIM6->SR = (uint16_t)~TIM_IT_Update; //清除中断位
   }     
 }
 

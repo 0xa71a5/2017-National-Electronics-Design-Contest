@@ -78,13 +78,13 @@ static void TIM6_Mode_Config(void)
 
   /* 累计 TIM_Period个后产生一个更新或者中断*/		
   //当定时器从0计数到4999，即为5000次，为一个定时周期
-  TIM_TimeBaseStructure.TIM_Period = 5000-1;       
+  TIM_TimeBaseStructure.TIM_Period = 200-1;       
 	
 	//定时器时钟源TIMxCLK = 2 * PCLK1  
   //				PCLK1 = HCLK / 4 
   //				=> TIMxCLK=HCLK/2=SystemCoreClock/2=84MHz
 	// 设定定时器频率为=TIMxCLK/(TIM_Prescaler+1)=10000Hz
-  TIM_TimeBaseStructure.TIM_Prescaler = 8400-1;	
+  TIM_TimeBaseStructure.TIM_Prescaler = 84-1;	
 	
 	// 初始化定时器TIMx, x[2,3,4,5]
 	TIM_TimeBaseInit(TIM6, &TIM_TimeBaseStructure);
@@ -157,15 +157,6 @@ void TIM7_Configuration(void)
   TIM7_Mode_Config();
 }
 
-void TIM6_DAC_IRQHandler(void)
-{
-  if ( TIM_GetITStatus( TIM6, TIM_IT_Update) != RESET ) 
-  { 
-    ledState=~ledState;
-    PFout(6)=ledState;
-    TIM_ClearITPendingBit(TIM6 , TIM_IT_Update);      
-  }     
-}
 
 
 /*********************************************END OF FILE**********************/

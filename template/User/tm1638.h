@@ -2,21 +2,33 @@
 #define _TM1638_H
 
 #include "stm32f4xx.h"
-//DIO pE9
-//CLK PE10
-//STB PE11
+//DIO PB9
+//CLK PB12
+//STB PC0 //PB14有问题
+
+#define DIO_Pin     GPIO_Pin_9
+#define DIO_Clock   RCC_AHB1Periph_GPIOB
+#define DIO_Port    GPIOB
+#define DIO_high	PBout(9)=1;delay_us(2)
+#define DIO_low		PBout(9)=0;delay_us(2)
+#define DIO_IN      {DIO_Port->MODER&=~(3<<(9*2));DIO_Port->MODER|=0<<9*2;}//输入状态
+#define DIO_OUT     {DIO_Port->MODER&=~(3<<(9*2));DIO_Port->MODER|=1<<9*2;}//输出状态
+#define DIO_READ    PBin(9)  //读引脚电平
+
+#define CLK_Pin     GPIO_Pin_12
+#define CLK_Clock   RCC_AHB1Periph_GPIOB
+#define CLK_Port    GPIOB
+#define CLK_high	PBout(12)=1;delay_us(2)
+#define CLK_low		PBout(12)=0;delay_us(2)
 
 
-#define DIO_high	PEout(9)=1;delay_us(2)
-#define DIO_low		PEout(9)=0;delay_us(2)
-#define CLK_high	PEout(10)=1;delay_us(2);
-#define CLK_low		PEout(10)=0;delay_us(2)
-#define STB_high  PEout(11)=1;delay_us(2)
-#define STB_low		PEout(11)=0;delay_us(2)
+#define STB_Pin     GPIO_Pin_0
+#define STB_Clock   RCC_AHB1Periph_GPIOC
+#define STB_Port    GPIOC
+#define STB_high    PCout(0)=1;delay_us(2)
+#define STB_low		PCout(0)=0;delay_us(2)
 
-#define DIO_IN  	{GPIOE->MODER&=~(3<<(9*2));GPIOE->MODER|=0<<9*2;}//输入状态
-#define DIO_OUT  	{GPIOE->MODER&=~(3<<(9*2));GPIOE->MODER|=1<<9*2;}//输出状态
-#define DIO_READ 	PEin(9)	 //读引脚电平
+
 
 
 #define BIT0 0x0001

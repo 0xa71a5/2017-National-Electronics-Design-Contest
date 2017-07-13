@@ -200,7 +200,7 @@ Mat Sklen(Mat image,int array1[],int num=20)
 }
 
 
-int thresholdValue=100;
+int thresholdValue=119;
 
 void trackbar(int input,void *u)  
 {  
@@ -232,23 +232,26 @@ vector<Point> Find_Endpoint(const Mat& input)
 	return result;
 }
 
-void Get_Chain(const Mat & input)
+Mat Prune(const Mat & input)//对骨架图像进行剪枝
 {
 	Mat showImg(input.size(),CV_8UC1,Scalar(255));
 
 	vector<Point> endian;
-	if(input.channels()!=1){cout<<"Error@ Fun (Find_EndPoint):Input image`s channel != 1\n";return ;}
+	if(input.channels()!=1){cout<<"Error@ Fun (Find_EndPoint):Input image`s channel != 1\n";return showImg ;}
 	endian=Find_Endpoint(input);
 	
 	stack <Point> pointStack;//广度优先遍历，存储点
 	set   <int>   visitedPoints;//记录已经经过的点映射集 (x,y) -> x<<12|y
 	#define _Point(p) (p).x<<15|(p).y  
 
-	vector<vector<Point>> chains;
-	vector<vector<Point>> subPaths;
+	//vector<vector<Point> > chains;
+	vector<vector<Point> > subPaths;
 
+	printf("Begin Get Chain!\n");
+	printf("Endian amount:%d\n",endian.size());
 	for(int i=0;i<endian.size();i++)//遍历每一个端点 先测试一个端点   endian.size()
 	{
+		printf("Handle:%d\n",i);
 		//潜在的围墙bug
 		visitedPoints.insert(_Point(endian[i]));//首先将端点插入到集合中
 		vector<Point> sub_chain;//存放链条 这是要返回的结果
@@ -261,12 +264,18 @@ void Get_Chain(const Mat & input)
 		
 		
 		subPaths.push_back(vector<Point>());
-		
+		int panic=0;
 		
 		while(!end)
 		{
+			panic++;
+			if(panic>1000)
+			{
+				printf("Panic state!Jump out!\n");
+				break;//恐慌模式，因为迭代次数过多，进入死循环了，跳出；注意这里end没有设置为true
+			}
 			visitedPoints.insert(_Point(currentPoint));//将当前点插入到已经访问过的点集中
-			sub_chain.push_back(currentPoint);//将当前点作为链条中的点加入到chain中
+			//sub_chain.push_back(currentPoint);//将当前点作为链条中的点加入到chain中
 			
 			subPaths[subPaths.size()-1].push_back(currentPoint);//debug 插入当前点到子路中
 			//if(currentPath>=0)pathLength[currentPath]++;//分叉路径长度记录
@@ -369,11 +378,9 @@ void Get_Chain(const Mat & input)
 			}
 		
 		}
-		//debug handler subpath
+
+		//chains.push_back(sub_chain);
 		
-		//
-		chains.push_back(sub_chain);
-		cout<<endl<<endl;
 	}
 
 	map<int,int> path_length;
@@ -411,23 +418,254 @@ void Get_Chain(const Mat & input)
 		}
 	}
 	cout<<"Show handled image\n";
+	globalImg=showImg;
 	imshow("5",showImg);
-	
-
-	
+	return showImg;
 }
 
+void Point_Join(vector<Point> &mainBody,const vector<Point> toAdd,bool reverse=false)
+{
+	if(!reverse)//正向拼接
+	{
+		for(int i=0;i<toAdd.size();i++)
+		{		
+			mainBody.push_back(toAdd[i]);
+		}
+	}
+	else
+	{
+		for(int i=toAdd.size()-1;i>=0;i--)
+		{		
+			mainBody.push_back(toAdd[i]);
+		}
+	}
+}
 
+void Get_Chain(const Mat & input)//获取链条
+{
+	//首先是获取每个线条分段
+	//理想状态下会有3个线段  不过也有可能会有更多的线段
+	Mat showImg(input.size(),CV_8UC1,Scalar(255));
+
+    vector<Point> endian;
+    if(input.channels()!=1){cout<<"Error@ Fun (Find_EndPoint):Input image`s channel != 1\n";return ;}
+    endian=Find_Endpoint(input);
+    printf("Endian amount:%d\n",endian.size());
+    cout<<"Endians:\n";//输出端点
+    cout<<endian<<endl;
+
+    set   <int>   visitedPoints;//记录已经经过的点映射集 (x,y) -> x<<12|y
+    #define _Point(p) (p).x<<15|(p).y  
+
+    vector<vector<Point> > chains;
+
+    printf("Begin Get Chain!\n");
+    
+    for(int i=0;i<endian.size();i++)//遍历每一个端点 先测试一个端点   endian.size()
+    {
+        printf("Handle:%d\n",i);
+        //潜在的围墙bug
+        visitedPoints.insert(_Point(endian[i]));//首先将端点插入到集合中
+        vector<Point> sub_chain;//存放链条 这是要返回的结果
+        Point currentPoint=endian[i];
+        Point nextPoint;
+        Point lastPoint;
+        bool end=false;//算法结束标记
+        Point D_P_Map[9]={Point(0,0),Point(1,0),Point(1,-1),Point(0,-1),Point(-1,-1),Point(-1,0),Point(-1,1),Point(0,1),Point(1,1)};
+                                    //  1           2           3           4           5           6           7           8
+        int panic=0;
+        
+        while(!end)
+        {
+            panic++;
+            if(panic>1000)
+            {
+                printf("Panic state!Jump out!\n");
+                break;//恐慌模式，因为迭代次数过多，进入死循环了，跳出；注意这里end没有设置为true
+            }
+            visitedPoints.insert(_Point(currentPoint));//将当前点插入到已经访问过的点集中
+            sub_chain.push_back(currentPoint);//将当前点作为链条中的点加入到chain中
+			cout<<currentPoint<<endl;
+            vector<int> foundBlack;
+            foundBlack.clear();
+            //检测周围8个点哪些是黑点
+            for(int D_Walker=1;D_Walker<=8;D_Walker++)
+            {
+                if(input.at<uchar>(currentPoint+D_P_Map[D_Walker])==0)
+                    foundBlack.push_back(D_Walker);
+            }
+
+            //下面决定下一步往哪里走
+            if(foundBlack.size()==1)//周围只有1个黑点，说明当前是端点
+            {
+                nextPoint=currentPoint+D_P_Map[ foundBlack[0] ];//nextPoind中存放的是下个点的位置
+                //需要判断这个点之前有没有经过
+                if(visitedPoints.count(_Point(nextPoint))==1)//之前遇到过这个点，说明我走到了尽头 lastPoint==nextPoint
+                {
+                    end=true;//跳出循环
+                }
+                lastPoint=currentPoint;
+                currentPoint=nextPoint;
+            }
+            else if(foundBlack.size()==2)//周围有两个黑点，说明当前点是处于线段的中间的点
+            {
+                Point p0,p1;
+                p0=currentPoint+D_P_Map[ foundBlack[0] ];
+                p1=currentPoint+D_P_Map[ foundBlack[1] ];
+                if(visitedPoints.count(_Point(p0))==1)//p1是新找到的点 需要判断这个点之前有没有经过
+                {
+                    nextPoint=currentPoint+D_P_Map[ foundBlack[1] ];
+                }
+                else//p0是新找到的点
+                {
+                    nextPoint=currentPoint+D_P_Map[ foundBlack[0] ];
+                }
+                lastPoint=currentPoint;
+                currentPoint=nextPoint;
+            }
+            else
+            {
+                //如果周围不止1个黑点，那么进入错误恢复模式
+                cout<<"We run into a error state!\n";
+                //debug这里需要增加处理函数
+            }
+           
+        }
+        chains.push_back(sub_chain); 
+    }
+	//过滤掉长度小于10的链条
+	vector<vector<Point > > chains2;
+	for(int i=0;i<chains.size();i++)//过滤掉那些长度非常小的线段
+	{
+		if(chains[i].size()>5)
+			chains2.push_back(chains[i]);
+	}
+	chains=chains2;//交换 ,chains中存放最终的链
+	vector<Point> points;
+    cout<<"Print chains\n";
+    for(int i=0;i<chains.size();i++)
+    {
+        printf("Chain %d: Length:%d\n",i,chains[i].size());
+		points.push_back(chains[i][0]);
+		points.push_back(chains[i][chains[i].size()-1]);
+
+		
+    }
+	
+
+ 
+	 cout<<"Begin\n";
+	 //使用跳链数组进行首尾匹配
+	 vector<int> match_index(points.size());//用来存放匹配后的点下标
+	 for(int i=0;i<points.size();i+=1)
+	 {
+		 Point p0=points[i];
+		 int skipNum=0;
+		 if(i%2==0)skipNum=i+1;
+		 else skipNum=i-1;
+
+		 int minVal=100000000;
+		 int minIndex=-1;
+		 //printf("Point%d:\n",i);
+		 for(int j=0;j<points.size();j++)
+		 {
+			 if(j==skipNum || j==i)continue;//不与自己比较
+			 Point VecP=p0-points[j];
+			 int dist=VecP.x*VecP.x+VecP.y*VecP.y;
+			 ///printf("	距离 Point%d =%d\n",j,dist);
+			 if(dist < minVal)
+			 {
+				 minVal=dist;
+				 minIndex=j;
+			 }
+		 }
+		 match_index[i]=minIndex;
+		 //printf("	minIndex=%d\n",minIndex);
+	 }
+
+	cout<<"Print match index:\n";
+	for(int i=0;i<match_index.size();i++)
+		cout<<match_index[i]<<endl;
+
+	int start_index=-1;
+	for(int i=0;i<match_index.size();i++)
+	{
+		int jump_to=match_index[i];
+		if(match_index[jump_to]!=i)//找到开始或者结束的点
+		{
+			start_index=i;
+			break;
+		}
+	}
+	 if(start_index==-1)//三者成环状连接，需要指定一个出发点
+	 {
+		 start_index=0;
+	 }
+	printf("开始串联端点\n");
+	int current_index=0;
+
+
+	vector<Point > result;
+
+	int join_time=chains.size();
+
+	printf("%d -> ",start_index);
+	if(start_index%2==0)//从它右边出发
+	{
+		current_index=start_index+1;
+		Point_Join(result,chains[start_index/2],false);
+	}
+	else
+	{
+		current_index=start_index-1;//从它左边出发
+		Point_Join(result,chains[start_index/2],true);
+	}
+	printf("%d -> ",current_index);
+
+	for(int j_time=1;j_time<join_time;j_time++)//j_time-1次
+	{
+		if(match_index[match_index[current_index]]==current_index)//当前index对应的下一跳也指向自己
+		{
+			current_index=match_index[current_index];
+			//print cur_index
+			printf("%d -> ",current_index);
+			if(current_index%2==0)
+			{
+				current_index++;
+				Point_Join(result,chains[current_index/2],false);
+			}
+			else
+			{
+				current_index--;
+				Point_Join(result,chains[current_index/2],true);
+			}
+				//print cur_index
+			printf("%d -> ",current_index);
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	for(int j=0;j<result.size();j++)
+	{
+		showImg.at<uchar>(result[j])=0;
+		imshow("6",showImg);
+		waitKey(3);
+	}
+	
+}
 void main()
 {
 	cvNamedWindow("1",1);
 	cvNamedWindow("2",1);
-	cvNamedWindow("3",1);
-
-	setMouseCallback("3",cvMouseCallback);
+	//cvNamedWindow("3",1);
+	cvNamedWindow("5",0);
+	setMouseCallback("5",cvMouseCallback);
 	createTrackbar( "Thre", "2", &thresholdValue, 255, trackbar);
 	
-	Mat image=imread("D:\\4.jpg");
+	Mat image=imread("D:\\8.jpg");
 	Mat grayImage;
 	Mat threImage;
 	cvtColor(image,grayImage,CV_BGR2GRAY);
@@ -439,16 +677,18 @@ void main()
 		imshow("2",threImage);
 	}
 
-	Mat sklenImage=Sklen(threImage,array);
+	Mat sklenImage=Sklen(threImage,array);//获取骨架
 	//vector<Point> endian=Find_Endpoint(sklenImage);
 
 	globalImg=sklenImage.clone();
 	
 	//for(int i=0;i<endian.size();i++)
 	//	circle(sklenImage,endian[i],5,Scalar(0));
-	imshow("3",sklenImage);
-
-	Get_Chain(sklenImage);
+	//imshow("3",sklenImage);
+	//waitKey(100);
+	cout<<"Get Chain...\n";
+	Mat pruneImg=Prune(sklenImage);//剪枝
+	Get_Chain(pruneImg);
 	printf("Done!\n");
 	
 	waitKey(0);
@@ -459,21 +699,6 @@ void main()
 
 void main_()
 {
-  map<int, int> name_score_map;  
-  name_score_map[1] = 90;  
-  name_score_map[2] = 79;  
-  name_score_map[3] = 92;  
-  name_score_map.insert(make_pair(4,99));  
-  name_score_map.insert(make_pair(5,86));  
- //把map中元素转存到vector中   
-  vector<PAIR> name_score_vec(name_score_map.begin(), name_score_map.end());  
-  sort(name_score_vec.begin(), name_score_vec.end(), CmpByValue());  
- // sort(name_score_vec.begin(), name_score_vec.end(), cmp_by_value);  
-  for (int i = 0; i != name_score_vec.size(); ++i) {  
-    cout << name_score_vec[i] << endl;  
-  }  
-  
 
-
-//	cout<<visitedPoints.count(_Point(Point(10,20)+Point(1,2)))<<endl;
 }
+

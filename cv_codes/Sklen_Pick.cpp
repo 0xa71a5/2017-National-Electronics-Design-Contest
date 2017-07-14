@@ -19,7 +19,9 @@
 #include <stack>
 using namespace std;
 using namespace cv;
-
+#define TREE_THRE_VALUE 20
+//长度大于TREE_THRE_VALUE的数量的子路径保留
+int thresholdValue=53;
 Mat globalImg;
 
 int array[256]={
@@ -87,16 +89,38 @@ void cvMouseCallback(int mouseEvent,int x,int y,int flags,void* param)
   }
 }
 
+Point poiLeftUp1;
+Point poiRightDown1;
+Mat   globalImg1;
+void cvMouseCallback2(int mouseEvent,int x,int y,int flags,void* param)
+{
+  switch(mouseEvent)
+  {
+	case CV_EVENT_LBUTTONUP://鼠标左键弹起
+		printf("(%d,%d)\n",x,y);
+		poiLeftUp1=Point(x,y);
+    break;
 
-void VThin(Mat &image,int array[])
+	case CV_EVENT_RBUTTONUP://鼠标右键弹起
+		poiRightDown1=Point(x,y);
+		printf("POI:");cout<<poiLeftUp1<<" "<<poiRightDown1<<endl;
+		globalImg1=Mat(globalImg,Rect(poiLeftUp1,poiRightDown1));
+		imshow("2",globalImg1);
+	break;
+  }
+}
+
+void VThin(Mat &image,int array[])//垂直方向进行向内漫水算法
 {
 	int h = image.rows;
 	int w = image.cols;
 	int NEXT=1;
 	for(int i=0;i<h;i++)
 	{
+		try{
 		for(int j=0;j<w;j++)
 		{
+			
 			if(NEXT==0)
 			{
 				NEXT=1;
@@ -128,11 +152,16 @@ void VThin(Mat &image,int array[])
 				}
 			}
 		}
+		}
+		catch(exception e)
+		{
+			cout<<e.what()<<endl;
+		}
 	}
 
 }
 
-void HThin(Mat &image,int array[])
+void HThin(Mat &image,int array[])//水平方向进行向内漫水算法
 {
 	int h=image.rows;
 	int w=image.cols;
@@ -179,28 +208,52 @@ void HThin(Mat &image,int array[])
 Mat Sklen(Mat image,int array1[],int num=20)
 {
 	Mat iXihua=image.clone();
-	
+	int all_cols=iXihua.cols;
+	int all_rows=iXihua.rows;
+	int middle_col=all_cols/2;
+	int midlle_row=all_rows/2;
+
+
+	float radio=0.95;//涂白边缘
+	int start_paint_row=midlle_row-all_rows*radio/2;
+	int end_paint_row=midlle_row+all_rows*radio/2;
+
+	int start_paint_col=middle_col-all_cols*radio/2;
+	int end_paint_col=middle_col+all_cols*radio/2;
+
+	//首先将所有边缘涂白
+	for(int i=0;i<start_paint_row;i++)//将最上边沿涂白
+		for(int j=0;j<all_cols;j++)
+			iXihua.at<uchar>(i,j)=255;
+	for(int i=end_paint_row;i<all_rows;i++)//将最下边沿涂白
+		for(int j=0;j<all_cols;j++)
+			iXihua.at<uchar>(i,j)=255;
+	for(int i=0;i<all_rows;i++)
+		for(int j=0;j<start_paint_col;j++)//将最左边沿涂白
+			iXihua.at<uchar>(i,j)=255;
+	for(int i=0;i<all_rows;i++)
+		for(int j=end_paint_col;j<all_cols;j++)//将最左边沿涂白
+			iXihua.at<uchar>(i,j)=255;
+
 	for(int i=0;i<num;i++)
 	{
+		printf("#%d\n",i);
 		VThin(iXihua,array1);
-
-		#ifdef debug
-		imshow("3",iXihua);
-		waitKey(300);
-		#endif
-
+		#define debug
+	
 		HThin(iXihua,array1);
 
 		#ifdef debug
 		imshow("3",iXihua);
 		waitKey(300);
+		printf("Sklen iter %d times\n",i);
 		#endif
 	}
 	return iXihua;
 }
 
 
-int thresholdValue=119;
+
 
 void trackbar(int input,void *u)  
 {  
@@ -406,8 +459,9 @@ Mat Prune(const Mat & input)//对骨架图像进行剪枝
 	
 	for(int i=0;i<path_length_vec.size();i++)//并输出排序之后的路径长度
 	{
+
 		cout<<path_length_vec[i]<<endl;
-		if(path_length_vec[i].second>40)//下面将过滤出来的 点数量 大于50 的路径画出来
+		if(path_length_vec[i].second>TREE_THRE_VALUE)//下面将过滤出来的 点数量 大于50 的路径画出来
 		{
 			int index=path_length_vec[i].first;
 			cout<<"$$"<< index<<endl;
@@ -441,14 +495,14 @@ void Point_Join(vector<Point> &mainBody,const vector<Point> toAdd,bool reverse=f
 	}
 }
 
-void Get_Chain(const Mat & input)//获取链条
+vector<Point> Get_Chain(const Mat & input)//获取链条
 {
 	//首先是获取每个线条分段
 	//理想状态下会有3个线段  不过也有可能会有更多的线段
 	Mat showImg(input.size(),CV_8UC1,Scalar(255));
 
     vector<Point> endian;
-    if(input.channels()!=1){cout<<"Error@ Fun (Find_EndPoint):Input image`s channel != 1\n";return ;}
+    if(input.channels()!=1){cout<<"Error@ Fun (Find_EndPoint):Input image`s channel != 1\n";return vector<Point>();}
     endian=Find_Endpoint(input);
     printf("Endian amount:%d\n",endian.size());
     cout<<"Endians:\n";//输出端点
@@ -485,7 +539,7 @@ void Get_Chain(const Mat & input)//获取链条
             }
             visitedPoints.insert(_Point(currentPoint));//将当前点插入到已经访问过的点集中
             sub_chain.push_back(currentPoint);//将当前点作为链条中的点加入到chain中
-			cout<<currentPoint<<endl;
+			//cout<<currentPoint<<endl;
             vector<int> foundBlack;
             foundBlack.clear();
             //检测周围8个点哪些是黑点
@@ -547,13 +601,9 @@ void Get_Chain(const Mat & input)//获取链条
     {
         printf("Chain %d: Length:%d\n",i,chains[i].size());
 		points.push_back(chains[i][0]);
-		points.push_back(chains[i][chains[i].size()-1]);
-
-		
+		points.push_back(chains[i][chains[i].size()-1]);	
     }
 	
-
- 
 	 cout<<"Begin\n";
 	 //使用跳链数组进行首尾匹配
 	 vector<int> match_index(points.size());//用来存放匹配后的点下标
@@ -564,7 +614,7 @@ void Get_Chain(const Mat & input)//获取链条
 		 if(i%2==0)skipNum=i+1;
 		 else skipNum=i-1;
 
-		 int minVal=100000000;
+		 int minVal=10000000;
 		 int minIndex=-1;
 		 //printf("Point%d:\n",i);
 		 for(int j=0;j<points.size();j++)
@@ -585,7 +635,14 @@ void Get_Chain(const Mat & input)//获取链条
 
 	cout<<"Print match index:\n";
 	for(int i=0;i<match_index.size();i++)
+	{
 		cout<<match_index[i]<<endl;
+		if(match_index[i]==-1)
+		{
+			cout<<"Error match index !Exit\n";
+			return vector<Point>();
+		}
+	}
 
 	int start_index=-1;
 	for(int i=0;i<match_index.size();i++)
@@ -626,7 +683,7 @@ void Get_Chain(const Mat & input)//获取链条
 	{
 		if(match_index[match_index[current_index]]==current_index)//当前index对应的下一跳也指向自己
 		{
-			current_index=match_index[current_index];
+			current_index=match_index[current_index];//进行跳转
 			//print cur_index
 			printf("%d -> ",current_index);
 			if(current_index%2==0)
@@ -654,18 +711,22 @@ void Get_Chain(const Mat & input)//获取链条
 		imshow("6",showImg);
 		waitKey(3);
 	}
-	
+	return result;	
 }
-void main()
+
+#define use_up
+#ifdef use_up
+
+int main()
 {
 	cvNamedWindow("1",1);
-	cvNamedWindow("2",1);
+	cvNamedWindow("2",0);
 	//cvNamedWindow("3",1);
 	cvNamedWindow("5",0);
 	setMouseCallback("5",cvMouseCallback);
 	createTrackbar( "Thre", "2", &thresholdValue, 255, trackbar);
 	
-	Mat image=imread("D:\\8.jpg");
+	Mat image=imread("standard.jpg");
 	Mat grayImage;
 	Mat threImage;
 	cvtColor(image,grayImage,CV_BGR2GRAY);
@@ -676,29 +737,112 @@ void main()
 		threshold(grayImage,threImage,thresholdValue,255,CV_THRESH_BINARY);
 		imshow("2",threImage);
 	}
-
+	printf("Enter sklen detect func\n");
+	printf("Channels=%d\n",threImage.channels());
 	Mat sklenImage=Sklen(threImage,array);//获取骨架
 	//vector<Point> endian=Find_Endpoint(sklenImage);
 
 	globalImg=sklenImage.clone();
-	
+	printf("Show sklen Image\n");
 	//for(int i=0;i<endian.size();i++)
 	//	circle(sklenImage,endian[i],5,Scalar(0));
-	//imshow("3",sklenImage);
+	imshow("3",sklenImage);
 	//waitKey(100);
 	cout<<"Get Chain...\n";
 	Mat pruneImg=Prune(sklenImage);//剪枝
-	Get_Chain(pruneImg);
+	vector<Point> chains=Get_Chain(pruneImg);
 	printf("Done!\n");
+	printf("Below is what is going to transmit by serial \n");
+	cout<<chains;
 	
 	waitKey(0);
-
+	return 0;
 }
+#endif
 
 
 
-void main_()
+#ifndef use_up
+bool notClose=true;
+vector<Point2f> corners(4);
+Mat imgToMap(500,400,CV_8UC3);//校正后的矩形map
+
+int cIndex=0;
+
+void cvMouseCallback_(int mouseEvent,int x,int y,int flags,void* param)
 {
+  switch(mouseEvent)
+  {
+	case CV_EVENT_LBUTTONUP:
 
+		corners[cIndex].x=x;
+		corners[cIndex].y=y;
+		printf("corner%d (%d,%d)\n",cIndex,x,y);
+		if(cIndex==3)
+		{
+			notClose=false;
+		}
+		cIndex=(cIndex+1)%4;
+    break;
+
+	case CV_EVENT_RBUTTONUP:
+		cIndex=0;
+	break;
+  }
 }
 
+int main()
+{
+	corners[0]=Point2f(207,35);
+	corners[1]=Point2f(530,40);
+	corners[2]=Point2f(541,453);
+	corners[3]=Point2f(193,451);
+
+
+	Mat rawImg=imread("D:\\光立方\\00.jpg");
+	
+	//waitKey(1000);
+	//cvDestroyWindow("demoRaw");
+
+	cvNamedWindow("demoMap",1);
+	//cvNamedWindow("demoSampleMat1",0);
+	//cvNamedWindow("demoThre",1);
+	//cvNamedWindow("demoProc",1);
+	//cvNamedWindow("demoCanny",1);
+	cvNamedWindow("demoRaw",1);
+	//imshow("demoRaw",rawImg);
+	//createTrackbar( "Threshold", "demoThre", &thresholdValue, 255, trackbar);
+	//createTrackbar( "Threshold", "demoCanny", &cannyThreshold, 255, trackCanny);
+	//setMouseCallback("demoCanny",mouseCall1);
+	//setMouseCallback("demoThre",mouseCall2);
+	//setMouseCallback("demoMap",mouseCall2);
+	setMouseCallback("demoRaw",cvMouseCallback_);
+	//cvtColor(rawImg,grayImg,CV_BGR2GRAY,0);
+	imshow("demoRaw",rawImg);
+	while(notClose)//notClose
+	{
+		imshow("demoRaw",rawImg);
+		if(waitKey(30)==27)
+			notClose=false;
+	}
+	//cvDestroyWindow("demoRaw");
+
+
+    int img_height = rawImg.rows;  
+    int img_width = rawImg.cols;  
+    vector<Point2f> corners_trans(4);  
+    corners_trans[0] = Point2f(0,0);  //获取矩形四个角的点(这里需要自动化实现)
+    corners_trans[1] = Point2f(imgToMap.cols-1,0);  
+    corners_trans[2] = Point2f(imgToMap.cols-1,imgToMap.rows-1);  
+    corners_trans[3] = Point2f(0,imgToMap.rows-1);  
+  
+    Mat transform = getPerspectiveTransform(corners,corners_trans);  
+    cout<<transform<<endl;  
+    warpPerspective(rawImg, imgToMap, transform, imgToMap.size());//进行仿射变换，将不规则四边形转变成矩形
+	//imgToMap=imread("G:\\2016Map.jpg");
+	imshow("demoMap",imgToMap);
+	waitKey(0);
+	imwrite("standard.jpg",imgToMap);
+	return 0;
+}
+#endif

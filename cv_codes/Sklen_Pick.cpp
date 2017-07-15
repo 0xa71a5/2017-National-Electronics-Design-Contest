@@ -1,17 +1,28 @@
+#define use_pi
+
+#ifdef use_pi
+	#define use_serial
+	#define use_up 
+#endif
+
+#include <sys/types.h>
+
+#ifdef use_serial
+	#include <unistd.h>
+	#include <termios.h>
+#endif
+
 #include <fstream> 
 #include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdlib.h>
-#include <string>
 #include <iostream>
 #include <opencv/cv.h>
 #include <opencv/cvaux.h>
 #include <opencv/cxcore.h>
 #include <opencv/highgui.h>
-#include <fstream>
 #include <string>
 #include <sstream>
 #include <map>
@@ -20,8 +31,9 @@
 using namespace std;
 using namespace cv;
 #define TREE_THRE_VALUE 20
+
 //长度大于TREE_THRE_VALUE的数量的子路径保留
-int thresholdValue=53;
+int thresholdValue=55;
 Mat globalImg;
 
 int array[256]={
@@ -43,6 +55,176 @@ int array[256]={
 	1,1,0,0,1,1,1,0,1,1,0,0,1,0,0,0
 };
 
+#ifdef use_serial
+int speed_arr[] = { B38400, B19200, B9600, B4800, B2400, B1200, B300,
+          B38400, B19200, B9600, B4800, B2400, B1200, B300, B115200 };
+int name_arr[] = {38400,  19200,  9600,  4800,  2400,  1200,  300, 38400,  
+          19200,  9600, 4800, 2400, 1200,  300, 115200 };
+
+int fd;
+int nread;
+char buff[512];
+char *dev  = "/dev/ttyUSB0"; //串口二
+
+int set_Parity(int fd,int databits,int stopbits,int parity)
+{ 
+	struct termios options; 
+	if  ( tcgetattr( fd,&options)  !=  0) { 
+		perror("SetupSerial 1");     
+		return(FALSE);  
+	}
+	options.c_cflag &= ~CSIZE; 
+	switch (databits) /*设置数据位数*/
+	{   
+	case 7:		
+		options.c_cflag |= CS7; 
+		break;
+	case 8:     
+		options.c_cflag |= CS8;
+		break;   
+	default:    
+		fprintf(stderr,"Unsupported data size\n"); return (FALSE);  
+	}
+switch (parity) 
+{   
+	case 'n':
+	case 'N':    
+		options.c_cflag &= ~PARENB;   /* Clear parity enable */
+		options.c_iflag &= ~INPCK;     /* Enable parity checking */ 
+		break;  
+	case 'o':   
+	case 'O':     
+		options.c_cflag |= (PARODD | PARENB); /* 设置为奇效验*/  
+		options.c_iflag |= INPCK;             /* Disnable parity checking */ 
+		break;  
+	case 'e':  
+	case 'E':   
+		options.c_cflag |= PARENB;     /* Enable parity */    
+		options.c_cflag &= ~PARODD;   /* 转换为偶效验*/     
+		options.c_iflag |= INPCK;       /* Disnable parity checking */
+		break;
+	case 'S': 
+	case 's':  /*as no parity*/   
+	    options.c_cflag &= ~PARENB;
+		options.c_cflag &= ~CSTOPB;break;  
+	default:   
+		fprintf(stderr,"Unsupported parity\n");    
+		return (FALSE);  
+	}  
+/* 设置停止位*/  
+switch (stopbits)
+{   
+	case 1:    
+		options.c_cflag &= ~CSTOPB;  
+		break;  
+	case 2:    
+		options.c_cflag |= CSTOPB;  
+	   break;
+	default:    
+		 fprintf(stderr,"Unsupported stop bits\n");  
+		 return (FALSE); 
+} 
+/* Set input parity option */ 
+if (parity != 'n')   
+	options.c_iflag |= INPCK; 
+tcflush(fd,TCIFLUSH);
+options.c_cc[VTIME] = 150; /* 设置超时15 seconds*/   
+options.c_cc[VMIN] = 0; /* Update the options and do it NOW */
+if (tcsetattr(fd,TCSANOW,&options) != 0)   
+{ 
+	perror("SetupSerial 3");   
+	return (FALSE);  
+} 
+return (TRUE);  
+}
+
+
+void set_speed(int fd, int speed){
+  int   i; 
+  int   status; 
+  struct termios   Opt;
+  tcgetattr(fd, &Opt); 
+  for ( i= 0;  i < sizeof(speed_arr) / sizeof(int);  i++) { 
+    if  (speed == name_arr[i]) {     
+      tcflush(fd, TCIOFLUSH);     
+      cfsetispeed(&Opt, speed_arr[i]);  
+      cfsetospeed(&Opt, speed_arr[i]);   
+      status = tcsetattr(fd, TCSANOW, &Opt);  
+      if  (status != 0) {        
+        perror("tcsetattr fd1");  
+        return;     
+      }    
+      tcflush(fd,TCIOFLUSH);   
+    }  
+  }
+}
+int OpenDev(char *Dev)
+{
+	int	fd = open( Dev, O_RDWR );         //| O_NOCTTY | O_NDELAY	
+	if (-1 == fd)	
+	{ 			
+		perror("Can't Open Serial Port");
+		return -1;		
+	}	
+	else	
+		return fd;
+}
+void Serial_begin(char devs[],int speed_num=115200)
+{
+
+	fd = OpenDev(devs);
+	set_speed(fd,speed_num);
+	if (set_Parity(fd,8,1,'N') == FALSE)  {
+		printf("Set Parity Error\n");
+		exit (0);
+	}
+}
+
+void Serial_print(string data)
+{
+	
+	const char *buffer=data.c_str();
+	int    Length=data.length();
+	int    nByte;
+	nByte = write(fd, buffer ,Length);
+}
+#endif
+
+
+class LeastSquare{  //最小二乘法
+   
+public:  
+	double a, b;  
+    LeastSquare(const vector<Point2f>xy)  
+    {  
+        double t1=0, t2=0, t3=0, t4=0;  
+        for(int i=0; i<xy.size(); ++i)  
+        {  
+			t1+=xy[i].x*xy[i].x;
+			t2+=xy[i].x;
+			t3+=xy[i].x*xy[i].y;
+			t4+=xy[i].y;
+        }  
+        a = (t3*xy.size() - t2*t4) / (t1*xy.size() - t2*t2);  
+        b = (t1*t4 - t2*t3) / (t1*xy.size() - t2*t2);  
+    }  
+  
+    double getY(const double x) const  
+    {  
+        return a*x + b;  
+    }  
+  
+    void print() const  
+    {  
+        cout<<"y = "<<a<<"x + "<<b<<"\n";  
+    }  
+  
+};  
+  
+
+
+
+
 Point poiLeftUp;
 Point poiRightDown;
 
@@ -50,6 +232,12 @@ typedef pair<int, int> PAIR;  //定义键值对
 struct CmpByValue {  //定义键值排序函数  大的数字在上面
   bool operator()(const PAIR& lhs, const PAIR& rhs) {  
     return lhs.second > rhs.second;  
+  }  
+};  
+
+struct CmpByValueSmallTop {  //定义键值排序函数  小的数字在上面
+  bool operator()(const PAIR& lhs, const PAIR& rhs) {  
+    return lhs.second < rhs.second;  
   }  
 };  
 
@@ -249,6 +437,9 @@ Mat Sklen(Mat image,int array1[],int num=20)
 		printf("Sklen iter %d times\n",i);
 		#endif
 	}
+	#ifdef debug
+	destroyWindow("3");
+	#endif
 	return iXihua;
 }
 
@@ -285,10 +476,154 @@ vector<Point> Find_Endpoint(const Mat& input)
 	return result;
 }
 
-Mat Prune(const Mat & input)//对骨架图像进行剪枝
+Mat Diffuse(Mat input)//单通道、二值化后的图像  
+{  
+
+	Mat srcimage=~input;
+
+    vector<Point> deletelist1;  
+    int Zhangmude[9];  
+    int nl = srcimage.rows;  
+    int nc = srcimage.cols;  
+    while (true)  
+    {  
+        for (int j = 1; j<(nl - 1); j++)  
+        {  
+            uchar* data_last = srcimage.ptr<uchar>(j - 1);  
+            uchar* data = srcimage.ptr<uchar>(j);  
+            uchar* data_next = srcimage.ptr<uchar>(j + 1);  
+            for (int i = 1; i<(nc - 1); i++)  
+            {  
+                if (data[i] == 255)  
+                {  
+                    Zhangmude[0] = 1;  
+                    if (data_last[i] == 255) Zhangmude[1] = 1;  
+                    else  Zhangmude[1] = 0;  
+                    if (data_last[i + 1] == 255) Zhangmude[2] = 1;  
+                    else  Zhangmude[2] = 0;  
+                    if (data[i + 1] == 255) Zhangmude[3] = 1;  
+                    else  Zhangmude[3] = 0;  
+                    if (data_next[i + 1] == 255) Zhangmude[4] = 1;  
+                    else  Zhangmude[4] = 0;  
+                    if (data_next[i] == 255) Zhangmude[5] = 1;  
+                    else  Zhangmude[5] = 0;  
+                    if (data_next[i - 1] == 255) Zhangmude[6] = 1;  
+                    else  Zhangmude[6] = 0;  
+                    if (data[i - 1] == 255) Zhangmude[7] = 1;  
+                    else  Zhangmude[7] = 0;  
+                    if (data_last[i - 1] == 255) Zhangmude[8] = 1;  
+                    else  Zhangmude[8] = 0;  
+                    int whitepointtotal = 0;  
+                    for (int k = 1; k < 9; k++)  
+                    {  
+                        whitepointtotal = whitepointtotal + Zhangmude[k];  
+                    }  
+                    if ((whitepointtotal >= 2) && (whitepointtotal <= 6))  
+                    {  
+                        int ap = 0;  
+                        if ((Zhangmude[1] == 0) && (Zhangmude[2] == 1)) ap++;  
+                        if ((Zhangmude[2] == 0) && (Zhangmude[3] == 1)) ap++;  
+                        if ((Zhangmude[3] == 0) && (Zhangmude[4] == 1)) ap++;  
+                        if ((Zhangmude[4] == 0) && (Zhangmude[5] == 1)) ap++;  
+                        if ((Zhangmude[5] == 0) && (Zhangmude[6] == 1)) ap++;  
+                        if ((Zhangmude[6] == 0) && (Zhangmude[7] == 1)) ap++;  
+                        if ((Zhangmude[7] == 0) && (Zhangmude[8] == 1)) ap++;  
+                        if ((Zhangmude[8] == 0) && (Zhangmude[1] == 1)) ap++;  
+                        if (ap == 1)  
+                        {  
+                            if ((Zhangmude[1] * Zhangmude[7] * Zhangmude[5] == 0) && (Zhangmude[3] * Zhangmude[5] * Zhangmude[7] == 0))  
+                            {  
+                                deletelist1.push_back(Point(i, j));  
+                            }  
+                        }  
+                    }  
+                }  
+            }  
+        }  
+        if (deletelist1.size() == 0) break;  
+        for (size_t i = 0; i < deletelist1.size(); i++)  
+        {  
+            Point tem;  
+            tem = deletelist1[i];  
+            uchar* data = srcimage.ptr<uchar>(tem.y);  
+            data[tem.x] = 0;  
+        }  
+        deletelist1.clear();  
+  
+        for (int j = 1; j<(nl - 1); j++)  
+        {  
+            uchar* data_last = srcimage.ptr<uchar>(j - 1);  
+            uchar* data = srcimage.ptr<uchar>(j);  
+            uchar* data_next = srcimage.ptr<uchar>(j + 1);  
+            for (int i = 1; i<(nc - 1); i++)  
+            {  
+                if (data[i] == 255)  
+                {  
+                    Zhangmude[0] = 1;  
+                    if (data_last[i] == 255) Zhangmude[1] = 1;  
+                    else  Zhangmude[1] = 0;  
+                    if (data_last[i + 1] == 255) Zhangmude[2] = 1;  
+                    else  Zhangmude[2] = 0;  
+                    if (data[i + 1] == 255) Zhangmude[3] = 1;  
+                    else  Zhangmude[3] = 0;  
+                    if (data_next[i + 1] == 255) Zhangmude[4] = 1;  
+                    else  Zhangmude[4] = 0;  
+                    if (data_next[i] == 255) Zhangmude[5] = 1;  
+                    else  Zhangmude[5] = 0;  
+                    if (data_next[i - 1] == 255) Zhangmude[6] = 1;  
+                    else  Zhangmude[6] = 0;  
+                    if (data[i - 1] == 255) Zhangmude[7] = 1;  
+                    else  Zhangmude[7] = 0;  
+                    if (data_last[i - 1] == 255) Zhangmude[8] = 1;  
+                    else  Zhangmude[8] = 0;  
+                    int whitepointtotal = 0;  
+                    for (int k = 1; k < 9; k++)  
+                    {  
+                        whitepointtotal = whitepointtotal + Zhangmude[k];  
+                    }  
+                    if ((whitepointtotal >= 2) && (whitepointtotal <= 6))  
+                    {  
+                        int ap = 0;  
+                        if ((Zhangmude[1] == 0) && (Zhangmude[2] == 1)) ap++;  
+                        if ((Zhangmude[2] == 0) && (Zhangmude[3] == 1)) ap++;  
+                        if ((Zhangmude[3] == 0) && (Zhangmude[4] == 1)) ap++;  
+                        if ((Zhangmude[4] == 0) && (Zhangmude[5] == 1)) ap++;  
+                        if ((Zhangmude[5] == 0) && (Zhangmude[6] == 1)) ap++;  
+                        if ((Zhangmude[6] == 0) && (Zhangmude[7] == 1)) ap++;  
+                        if ((Zhangmude[7] == 0) && (Zhangmude[8] == 1)) ap++;  
+                        if ((Zhangmude[8] == 0) && (Zhangmude[1] == 1)) ap++;  
+                        if (ap == 1)  
+                        {  
+                            if ((Zhangmude[1] * Zhangmude[3] * Zhangmude[5] == 0) && (Zhangmude[3] * Zhangmude[1] * Zhangmude[7] == 0))  
+                            {  
+                                deletelist1.push_back(Point(i, j));  
+                            }  
+                        }  
+                    }  
+                }  
+            }  
+        }  
+        if (deletelist1.size() == 0) break;  
+        for (size_t i = 0; i < deletelist1.size(); i++)  
+        {  
+            Point tem;  
+            tem = deletelist1[i];  
+            uchar* data = srcimage.ptr<uchar>(tem.y);  
+            data[tem.x] = 0;  
+        }  
+        deletelist1.clear();  
+    } 
+
+	return ~srcimage;
+}
+
+
+Mat Prune(const Mat & input_raw)//对骨架图像进行剪枝
 {
+	Mat input=input_raw.clone();
 	Mat showImg(input.size(),CV_8UC1,Scalar(255));
 
+	vector<Point> three_around_points;
 	vector<Point> endian;
 	if(input.channels()!=1){cout<<"Error@ Fun (Find_EndPoint):Input image`s channel != 1\n";return showImg ;}
 	endian=Find_Endpoint(input);
@@ -385,6 +720,7 @@ Mat Prune(const Mat & input)//对骨架图像进行剪枝
 			}
 			else if(foundBlack.size()>=3)//当前的点是一个分叉口 一般情况下应该是最多为3
 			{//?
+				three_around_points.push_back(currentPoint);//debug将分叉路口加入
 				subPaths.push_back(vector<Point>());//debug增加新的子路
 				if(foundBlack.size()>3)cout<<"##########Found Exception Points############\n";//如果点数超过3  认为是异常状态
 				//以下默认按照只有3个点进行处理
@@ -472,8 +808,14 @@ Mat Prune(const Mat & input)//对骨架图像进行剪枝
 		}
 	}
 	cout<<"Show handled image\n";
+
+	//debug 对于分岔路口 全部断开
+	for(int i=0;i<three_around_points.size();i++)
+		showImg.at<uchar>(three_around_points[i])=255;//分岔路口全部设置为白色
+	//enddebug
+
 	globalImg=showImg;
-	imshow("5",showImg);
+	imshow("5_Prune",showImg);
 	return showImg;
 }
 
@@ -494,15 +836,128 @@ void Point_Join(vector<Point> &mainBody,const vector<Point> toAdd,bool reverse=f
 		}
 	}
 }
-
-vector<Point> Get_Chain(const Mat & input)//获取链条
+double Get_K(vector<Point> chain)//获取一段链的斜率k 使用最小二乘法
 {
+	int calc_points_num=chain.size();
+	//if(chain.size()/3<calc_points_num)calc_points_num=chain.size()/3;//如果链比较短，那么计算延伸线段斜率时候取点数量也比较少
+
+	//double deltStep=8;//最多延长7个单位
+	//vector<Point> result(2);
+	double test_x=chain[0].x;
+	//这个链不能很长，否则可能无效 因为涉及到大弧度的曲线问题
+	/*
+	for(int i=0;i<calc_points_num;i++)
+		if(test_x!=chain[i].x)
+		{
+			test_x=chain[i].x;
+			break;
+		}
+	if(test_x==chain[0].x)//说明当前是一条垂直的竖线,直接延伸
+	{
+		
+		if(chain[0].y<chain[1].y)
+			result[0]=Point(test_x,chain[0].y-deltStep);
+		else
+			result[0]=Point(test_x,chain[0].y+deltStep);
+	}
+	*/
+	//else
+	//{
+		vector<Point2f> toCalc;
+		for(int i=0;i<calc_points_num;i++)
+			toCalc.push_back(Point2f(chain[i].x,chain[i].y));
+		LeastSquare ls(toCalc);
+		return ls.a;
+	//}
+
+}
+
+double get_delt_theta(double k1,double k2)
+{
+	#define get_theta(x) atan((x))*180/3.141592657
+	double deltTheta1=abs(get_theta(k1)-get_theta(k2));
+	if(deltTheta1>90)deltTheta1=180-deltTheta1;
+	return deltTheta1;
+}
+
+vector<Point > take_chain2(vector<int> match_index,vector<vector<Point> >chains,vector<int> &not_walked,int points_size,int start_index=-1)
+{
+	printf("开始串联端点\n");
+	int current_index=0;
+
+
+	vector<Point > result;
+
+	int join_time=chains.size();
+	set<int> already_walked;//记录那些遍历过的链 在最后用来确定哪些链条没有被遍历
+	printf("%d -> ",start_index);
+	if(start_index%2==0)//从它右边出发
+	{
+		current_index=start_index+1;
+		Point_Join(result,chains[start_index/2],false);
+	}
+	else
+	{
+		current_index=start_index-1;//从它左边出发
+		Point_Join(result,chains[start_index/2],true);
+		
+	}
+	printf("%d -> ",current_index);
+	already_walked.insert(start_index);
+	already_walked.insert(current_index);//记录
+
+	for(int j_time=1;j_time<join_time;j_time++)//j_time-1次
+	{
+		if(match_index[match_index[current_index]]==current_index)//当前index对应的下一跳也指向自己
+		{
+			current_index=match_index[current_index];//进行跳转
+			//print cur_index
+			printf("%d -> ",current_index);
+			already_walked.insert(current_index);//记录
+			if(current_index%2==0)
+			{
+				current_index++;
+				Point_Join(result,chains[current_index/2],false);
+			}
+			else
+			{
+				current_index--;
+				Point_Join(result,chains[current_index/2],true);
+			}
+			already_walked.insert(current_index);//记录
+				//print cur_index
+			printf("%d -> ",current_index);
+		}
+		else
+		{
+			break;
+		}
+	}
+	//already_walked
+	
+	cout<<"Detect if there is not walked chain.\n";
+	for(int i=0;i<points_size;i++)
+	{
+		if(already_walked.count(i)==0)
+		{
+			printf("Chain %d not walked!\n",i);
+			not_walked.push_back(i);
+		}
+	}
+
+	return result;
+}
+vector<Point> Get_Chain(const Mat & input_raw)//获取链条
+{
+	Mat input=input_raw.clone();
 	//首先是获取每个线条分段
 	//理想状态下会有3个线段  不过也有可能会有更多的线段
 	Mat showImg(input.size(),CV_8UC1,Scalar(255));
 
     vector<Point> endian;
     if(input.channels()!=1){cout<<"Error@ Fun (Find_EndPoint):Input image`s channel != 1\n";return vector<Point>();}
+	
+
     endian=Find_Endpoint(input);
     printf("Endian amount:%d\n",endian.size());
     cout<<"Endians:\n";//输出端点
@@ -579,9 +1034,23 @@ vector<Point> Get_Chain(const Mat & input)//获取链条
             }
             else
             {
-                //如果周围不止1个黑点，那么进入错误恢复模式
+                //如果周围不止2个黑点，那么进入错误恢复模式
                 cout<<"We run into a error state!\n";
                 //debug这里需要增加处理函数
+				 Point p0,p1;
+                p0=currentPoint+D_P_Map[ foundBlack[0] ];
+                p1=currentPoint+D_P_Map[ foundBlack[1] ];
+                if(visitedPoints.count(_Point(p0))==1)//p1是新找到的点 需要判断这个点之前有没有经过
+                {
+                    nextPoint=currentPoint+D_P_Map[ foundBlack[1] ];
+                }
+                else//p0是新找到的点
+                {
+                    nextPoint=currentPoint+D_P_Map[ foundBlack[0] ];
+                }
+                lastPoint=currentPoint;
+                currentPoint=nextPoint;
+
             }
            
         }
@@ -600,8 +1069,31 @@ vector<Point> Get_Chain(const Mat & input)//获取链条
     for(int i=0;i<chains.size();i++)
     {
         printf("Chain %d: Length:%d\n",i,chains[i].size());
+		char showWords[10];
+		sprintf(showWords,"%d",i);
+		//putText(showImg,showWords,chains[i][chains[i].size()/2],CV_FONT_BLACK,0.5,Scalar(0));
+
+		//debug 将每一条线段在末端进行延伸
+		//首先尝试只将延伸的点作为逻辑端点加入到points中
+		/*
+		vector<Point> extendP=Extend_Chain(chains[i]);
+		if(extendP[0].x<0)extendP[0].x=0;
+		if(extendP[0].x>showImg.cols)extendP[0].x=showImg.cols-1;
+		if(extendP[0].y<0)extendP[0].y=0;
+		if(extendP[0].y>showImg.rows)extendP[0].y=showImg.rows-1;
+
+		if(extendP[1].x<0)extendP[1].x=0;
+		if(extendP[1].x>showImg.cols)extendP[1].x=showImg.cols-1;
+		if(extendP[1].y<0)extendP[1].y=0;
+		if(extendP[1].y>showImg.rows)extendP[1].y=showImg.rows-1;
+		*/
+		//circle(showImg,extendP[0],4,Scalar(0));
+		//circle(showImg,extendP[1],4,Scalar(0));
+
 		points.push_back(chains[i][0]);
 		points.push_back(chains[i][chains[i].size()-1]);	
+		//points.push_back(extendP[0]);
+		//points.push_back(extendP[1]);
     }
 	
 	 cout<<"Begin\n";
@@ -609,6 +1101,9 @@ vector<Point> Get_Chain(const Mat & input)//获取链条
 	 vector<int> match_index(points.size());//用来存放匹配后的点下标
 	 for(int i=0;i<points.size();i+=1)
 	 {
+		 char showWords[10];
+	     sprintf(showWords,"%d",i);
+		 putText(showImg,showWords,points[i],CV_FONT_BLACK,0.5,Scalar(0));
 		 Point p0=points[i];
 		 int skipNum=0;
 		 if(i%2==0)skipNum=i+1;
@@ -665,7 +1160,7 @@ vector<Point> Get_Chain(const Mat & input)//获取链条
 	vector<Point > result;
 
 	int join_time=chains.size();
-
+	set<int> already_walked;//记录那些遍历过的链 在最后用来确定哪些链条没有被遍历
 	printf("%d -> ",start_index);
 	if(start_index%2==0)//从它右边出发
 	{
@@ -676,8 +1171,11 @@ vector<Point> Get_Chain(const Mat & input)//获取链条
 	{
 		current_index=start_index-1;//从它左边出发
 		Point_Join(result,chains[start_index/2],true);
+		
 	}
 	printf("%d -> ",current_index);
+	already_walked.insert(start_index);
+	already_walked.insert(current_index);//记录
 
 	for(int j_time=1;j_time<join_time;j_time++)//j_time-1次
 	{
@@ -686,6 +1184,7 @@ vector<Point> Get_Chain(const Mat & input)//获取链条
 			current_index=match_index[current_index];//进行跳转
 			//print cur_index
 			printf("%d -> ",current_index);
+			already_walked.insert(current_index);//记录
 			if(current_index%2==0)
 			{
 				current_index++;
@@ -696,6 +1195,7 @@ vector<Point> Get_Chain(const Mat & input)//获取链条
 				current_index--;
 				Point_Join(result,chains[current_index/2],true);
 			}
+			already_walked.insert(current_index);//记录
 				//print cur_index
 			printf("%d -> ",current_index);
 		}
@@ -704,71 +1204,212 @@ vector<Point> Get_Chain(const Mat & input)//获取链条
 			break;
 		}
 	}
+	//already_walked
+	vector<int> not_walked;
+	bool success_=true;
+	cout<<"Detect if there is not walked chain.\n";
+	for(int i=0;i<points.size();i++)
+	{
+		if(already_walked.count(i)==0)
+		{
+			printf("Chain %d not walked!\n",i);
+			not_walked.push_back(i);
+			success_=false;
+		}
+	}
+	if(!success_)//使用常规方法串联失败  使用升级的方法
+	{
+		printf("!_success_\n");
+		vector<vector<int> > match_index_list;//存储每个端点到其他端点的距离长短排序，存储的端点序号，长度从最小到最大
+		vector<vector<int> > match_index_distance;//存储上面端点中对应的距离
+		vector<double>      match_index_k;//存储每个端点附近的斜率
+		
+		for(int i=0;i<points.size();i+=1)//开始进行距离测算
+		{
+			map<int,int> distance_;
+
+			Point p0=points[i];
+			int skipNum=0;
+			if(i%2==0)skipNum=i+1;
+			else skipNum=i-1;
+
+			for(int j=0;j<points.size();j++)
+			{
+				if(j==skipNum || j==i)continue;//不与自己比较
+				Point VecP=p0-points[j];
+				int dist=sqrt(VecP.x*VecP.x+VecP.y*VecP.y);
+				 distance_[j]=dist;
+			}
+			vector<PAIR> vec1(distance_.begin(),distance_.end());
+			std::sort(vec1.begin(),vec1.end(),CmpByValueSmallTop());
+			vector<int> tmp1_index;
+			vector<int> tmp1_distance;
+			for(int tt=0;tt<vec1.size();tt++)
+			{
+				tmp1_index.push_back(vec1[tt].first);
+				tmp1_distance.push_back(vec1[tt].second);
+			}
+			
+			
+			vector<Point> points_get_k;
+			int wants_points=20;
+			if(wants_points>chains[i/2].size())
+			{//可以使用的点的数量很少
+				points_get_k=chains[i/2];
+			}
+			else
+			{//可以使用的点的数量足够
+				if(i%2==0)//链开始的地方
+				{
+					for(int kk=0;kk<wants_points;kk++)
+						points_get_k.push_back(chains[i/2][kk]);
+				}
+				else//链结束的地方
+				{
+					for(int kk=chains[i/2].size()-wants_points;kk<chains[i/2].size();kk++)
+						points_get_k.push_back(chains[i/2][kk]);
+				}
+			}
+			double my_k=Get_K(points_get_k);
+
+			match_index_list.push_back(tmp1_index);
+			match_index_distance.push_back(tmp1_distance);
+			match_index_k.push_back(my_k);
+		 }
+
+		printf("Print match_index_list and distance\n");
+		for(int i=0;i<match_index_list.size();i++)
+		{
+			printf("[%d] k=%f ",i,match_index_k[i]);
+			for(int j=0;j<match_index_list[i].size();j++)
+			{
+				printf("%d:%d\t",match_index_list[i][j],match_index_distance[i][j]);
+			}
+			printf("\n");
+		}
+		//根据上面上个序列进行匹配
+		//首先检测某个端点对应的最短距离的点数量
+		//其次在特定情况下检测k值
+#define THRESH_DISTANCE_VALUE 70
+
+		vector<int> level_0_p;
+		
+		vector<int> match_group(points.size());//
+		printf("Print new match group:\n");
+		for(int i=0;i<match_index_list.size();i++)
+		{
+			int good_num=0;
+			//首先是获取小于THRE_DIS_VAL的点的数量
+			for(int j=0;j<match_index_distance[i].size();j++)
+			{
+				if(match_index_distance[i][j]<THRESH_DISTANCE_VALUE)
+					good_num++;
+			}
+			match_group[i]=0;
+			if(good_num==0)
+				level_0_p.push_back(i);//level 0 点，最外围
+			else if(good_num==1)
+			{
+				match_group[i]=match_index_list[i][0];
+			}
+			else if(good_num>=2)//进入斜率匹配阶段
+			{
+				int min_k_index=-1;
+				int min_delt_theta=900;
+				for(int kk=0;kk<good_num;kk++)
+				{
+					
+					double delt_theta_=get_delt_theta(match_index_k[i],match_index_k[match_index_list[i][kk]]);
+					if(delt_theta_<min_delt_theta)
+					{
+						min_k_index=kk;
+						min_delt_theta=delt_theta_;
+					}
+				}
+				match_group[i]=match_index_list[i][min_k_index];
+			}
+			printf("%d:%d  ",i,match_group[i]);
+		}
+		vector<int> other_to_go;
+		if(level_0_p.size()!=0)
+			result=take_chain2(match_group,chains,other_to_go,points.size(),level_0_p[0]);
+		else
+			result=take_chain2(match_group,chains,other_to_go,points.size(),0);
+
+		if(other_to_go.size()!=0)
+		{
+			for(int kk=0;kk<other_to_go.size();kk+=2)
+			{
+				//可以将剩余没有走完的线段先进行拼接 然后再找一个端点连接到当前的result，但是我太累了，所以不想写了
+				Point_Join(result,chains[other_to_go[kk]/2],false);
+			}
+		}
+		printf("We are going to use new result!\n");
+	}
+	
 
 	for(int j=0;j<result.size();j++)
 	{
 		showImg.at<uchar>(result[j])=0;
-		imshow("6",showImg);
+		imshow("6_GetChain",showImg);
 		waitKey(3);
 	}
 	return result;	
 }
 
-#define use_up
-#ifdef use_up
-
-int main()
+vector<Point2f > Remap_Coord(vector<Point> chains)
 {
-	cvNamedWindow("1",1);
-	cvNamedWindow("2",0);
-	//cvNamedWindow("3",1);
-	cvNamedWindow("5",0);
-	setMouseCallback("5",cvMouseCallback);
-	createTrackbar( "Thre", "2", &thresholdValue, 255, trackbar);
-	
-	Mat image=imread("standard.jpg");
-	Mat grayImage;
-	Mat threImage;
-	cvtColor(image,grayImage,CV_BGR2GRAY);
-	imshow("1",image);
-
-	while(waitKey(30)!=27)
+	vector<Point2f> ret;
+	if(chains.size()<10){cout<<"Chains size too small\n";return ret;}
+	//首先将chains整理为下方的点为出发点
+	Point firstP=chains[0];
+	Point lastP=chains[chains.size()-1];
+	vector<Point> ret_int;
+	if(firstP.y>lastP.y)//当前的出发点在上方，反转chains
 	{
-		threshold(grayImage,threImage,thresholdValue,255,CV_THRESH_BINARY);
-		imshow("2",threImage);
+		ret_int.clear();
+		Point_Join(ret_int,chains,true);//反转链条
 	}
-	printf("Enter sklen detect func\n");
-	printf("Channels=%d\n",threImage.channels());
-	Mat sklenImage=Sklen(threImage,array);//获取骨架
-	//vector<Point> endian=Find_Endpoint(sklenImage);
-
-	globalImg=sklenImage.clone();
-	printf("Show sklen Image\n");
-	//for(int i=0;i<endian.size();i++)
-	//	circle(sklenImage,endian[i],5,Scalar(0));
-	imshow("3",sklenImage);
-	//waitKey(100);
-	cout<<"Get Chain...\n";
-	Mat pruneImg=Prune(sklenImage);//剪枝
-	vector<Point> chains=Get_Chain(pruneImg);
-	printf("Done!\n");
-	printf("Below is what is going to transmit by serial \n");
-	cout<<chains;
-	
-	waitKey(0);
-	return 0;
+	else
+	{
+		ret_int=chains;
+	}
+	for(int i=0;i<ret_int.size();i++)
+	{
+		float X0=ret_int[i].x;
+		float Y0=ret_int[i].y;
+		float XT=X0/5;		//转换x坐标
+		float YT=100-Y0/5;	//转换y坐标
+		ret.push_back(Point2f(XT,YT));
+	}
+	return ret;
 }
-#endif
 
 
+void Serial_Transfer(vector<Point2f> chains)
+{
 
-#ifndef use_up
+    String toSend;
+    char tmp_buff[40];
+    toSend+="<S,0,0>";
+    for(int i=0;i<chains.size();i++)
+    {
+        sprintf(tmp_buff,"<P,%.1f,%.1f>",chains[i].x,chains[i].y);
+        toSend+=tmp_buff;
+    }
+    toSend+="<E,0,0>";
+    cout<<"Command to send by serial:"<<toSend<<endl;
+
+    #ifdef use_serial
+    Serial_begin("/dev/ttyUSB0",115200);
+    Serial_print(toSend);
+    #endif
+}
+
 bool notClose=true;
 vector<Point2f> corners(4);
 Mat imgToMap(500,400,CV_8UC3);//校正后的矩形map
-
 int cIndex=0;
-
 void cvMouseCallback_(int mouseEvent,int x,int y,int flags,void* param)
 {
   switch(mouseEvent)
@@ -791,58 +1432,179 @@ void cvMouseCallback_(int mouseEvent,int x,int y,int flags,void* param)
   }
 }
 
-int main()
+
+Mat Get_Standard_Img(String path="standard.jpg")
 {
-	corners[0]=Point2f(207,35);
-	corners[1]=Point2f(530,40);
-	corners[2]=Point2f(541,453);
-	corners[3]=Point2f(193,451);
+	Mat rawImg;
+	//ofstream param_file("config.txt",ios::in|ios::out);
+	//int tmp;
+	//param_file>>tmp;
+	ifstream read_file("config.txt");
+	int x=0,y=0;
+	read_file>>x>>y;
+	corners[0]=Point2f(x,y);
+	read_file>>x>>y;
+	corners[1]=Point2f(x,y);
+	read_file>>x>>y;
+	corners[2]=Point2f(x,y);
+	read_file>>x>>y;
+	corners[3]=Point2f(x,y);
+	read_file.close();
 
+#ifdef use_pi
+	VideoCapture cap;
+#endif
+	cvNamedWindow("video",0);
+	setMouseCallback("video",cvMouseCallback_);
+#ifndef use_pi
+	rawImg=imread(path);
+#endif
 
-	Mat rawImg=imread("D:\\光立方\\00.jpg");
-	
-	//waitKey(1000);
-	//cvDestroyWindow("demoRaw");
+#ifdef use_pi
 
-	cvNamedWindow("demoMap",1);
-	//cvNamedWindow("demoSampleMat1",0);
-	//cvNamedWindow("demoThre",1);
-	//cvNamedWindow("demoProc",1);
-	//cvNamedWindow("demoCanny",1);
-	cvNamedWindow("demoRaw",1);
-	//imshow("demoRaw",rawImg);
-	//createTrackbar( "Threshold", "demoThre", &thresholdValue, 255, trackbar);
-	//createTrackbar( "Threshold", "demoCanny", &cannyThreshold, 255, trackCanny);
-	//setMouseCallback("demoCanny",mouseCall1);
-	//setMouseCallback("demoThre",mouseCall2);
-	//setMouseCallback("demoMap",mouseCall2);
-	setMouseCallback("demoRaw",cvMouseCallback_);
-	//cvtColor(rawImg,grayImg,CV_BGR2GRAY,0);
-	imshow("demoRaw",rawImg);
-	while(notClose)//notClose
+	try{
+		cap.open(0);
+		if (!cap.isOpened())
+		{
+			cout << "***Could not cap0..***\n";
+			cap.open(1);
+			cout<<"Change to cap1\n";
+		}
+		cap>>rawImg;
+	}
+	catch(exception e)
 	{
-		imshow("demoRaw",rawImg);
+		cap.open(1);
+		cout<<"Change to cap1\n";
+		cap>>rawImg;
+	}	
+#endif
+
+	while(notClose)
+	{
+		imshow("video",rawImg);
 		if(waitKey(30)==27)
 			notClose=false;
 	}
-	//cvDestroyWindow("demoRaw");
+	cvDestroyWindow("video");
+
+	ofstream set_file("config.txt",ios::out);
+	set_file<<(int)corners[0].x<<endl<<(int)corners[0].y<<endl;
+	set_file<<(int)corners[1].x<<endl<<(int)corners[1].y<<endl;
+	set_file<<(int)corners[2].x<<endl<<(int)corners[2].y<<endl;
+	set_file<<(int)corners[3].x<<endl<<(int)corners[3].y<<endl;
+	set_file.close();
 
 
-    int img_height = rawImg.rows;  
-    int img_width = rawImg.cols;  
-    vector<Point2f> corners_trans(4);  
+	vector<Point2f> corners_trans(4);  
     corners_trans[0] = Point2f(0,0);  //获取矩形四个角的点(这里需要自动化实现)
     corners_trans[1] = Point2f(imgToMap.cols-1,0);  
     corners_trans[2] = Point2f(imgToMap.cols-1,imgToMap.rows-1);  
     corners_trans[3] = Point2f(0,imgToMap.rows-1);  
-  
-    Mat transform = getPerspectiveTransform(corners,corners_trans);  
+
+	Mat transform = getPerspectiveTransform(corners,corners_trans);  
     cout<<transform<<endl;  
     warpPerspective(rawImg, imgToMap, transform, imgToMap.size());//进行仿射变换，将不规则四边形转变成矩形
-	//imgToMap=imread("G:\\2016Map.jpg");
-	imshow("demoMap",imgToMap);
-	waitKey(0);
-	imwrite("standard.jpg",imgToMap);
+
+	return imgToMap;
+}
+
+#define use_up
+#ifdef use_up
+
+int main()
+{
+	//cvNamedWindow("1",1);
+	cvNamedWindow("2_threImg",0);
+	//cvNamedWindow("3",1);
+	cvNamedWindow("5_Prune",1);
+	setMouseCallback("5_Prune",cvMouseCallback);//globalImg
+	createTrackbar( "Thre", "2_threImg", &thresholdValue, 255, trackbar);
+	
+	Mat image=Get_Standard_Img("19.jpg");//imread("standard.jpg");
+	Mat grayImage;
+	Mat threImage;
+	cvtColor(image,grayImage,CV_BGR2GRAY);
+	//imshow("1",image);
+	waitKey(500);
+
+	//thresholdValue=95;
+	while(waitKey(30)!=27)
+	{
+		threshold(grayImage,threImage,thresholdValue,255,CV_THRESH_BINARY);
+		imshow("2_threImg",threImage);
+	}
+	Mat processImg;
+	Mat element=getStructuringElement(MORPH_CROSS,Size(3,3));
+	dilate(threImage,processImg,element);
+	erode(processImg,processImg,element);//进行腐蚀和膨胀
+	erode(processImg,processImg,element);//进行腐蚀和膨胀
+	threshold(processImg,threImage,thresholdValue,255,CV_THRESH_BINARY);
+	imshow("2_threImg",threImage);
+
+	printf("Enter diffuse func\n");//debug 这里是新增加的漫水骨架提取算法
+	//threImage=Diffuse(threImage);
+	printf("Enter sklen detect func\n");
+	printf("Channels=%d\n",threImage.channels());
+	Mat sklenImage=Sklen(threImage,array);//获取骨架
+	//vector<Point> endian=Find_Endpoint(sklenImage);
+
+	globalImg=sklenImage.clone();
+	printf("Show sklen Image\n");
+	//for(int i=0;i<endian.size();i++)
+	//	circle(sklenImage,endian[i],5,Scalar(0));
+	imshow("3_Sklen",sklenImage);
+	//waitKey(100);
+	cout<<"Get Chain...\n";
+	Mat pruneImg=Prune(sklenImage);//剪枝
+	vector<Point> chains=Get_Chain(pruneImg);
+	vector<Point2f> Origin_Result=Remap_Coord(chains);//转换坐标系，使用浮点数存储 注意map尺寸是400*500
+	printf("Done!\n");
+	printf("Below is what is going to transmit by serial \n");
+	vector<Point2f> Final_Result;//Origin Result 尺寸可能过大，放缩到100以内
+	if(Origin_Result.size()>100)
+	{
+		float ratio_=(float)Origin_Result.size()/100;
+		for(int i=0;i<100;i++)
+		{
+			Final_Result.push_back(Origin_Result[(unsigned int)((float)i*ratio_)]);
+		}
+	}
+	else
+		Final_Result=Origin_Result;
+
+	cout<<Final_Result;
+	cout<<"size of Final_Result:"<<Final_Result.size()<<endl;
+	//waitKey(0);
+	Serial_Transfer(Final_Result);
+	return 0;
+}
+#endif
+
+
+
+#ifndef use_up
+
+
+
+int main()
+{
+		double k1=1;
+		double k2=-1;
+		double k3=5;
+		double k4=-9;
+		
+
+
+		cout<<get_theta(k1)<<endl;
+		cout<<get_theta(k2)<<endl;
+		cout<<get_theta(k3)<<endl;
+		cout<<get_theta(k4)<<endl<<endl;
+
+		double deltTheta1=abs(get_theta(k1)-get_theta(k4));
+		if(deltTheta1>90)deltTheta1=180-deltTheta1;
+		cout<<deltTheta1<<endl;
+
 	return 0;
 }
 #endif

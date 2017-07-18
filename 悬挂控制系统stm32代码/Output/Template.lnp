@@ -48,7 +48,10 @@
 "..\..\output\bsp_led.o"
 "..\..\output\bsp_tim2.o"
 "..\..\output\bsp_tim3.o"
-"..\..\output\bsp_tim3_pwm.o"
+"..\..\output\bsp_pwm.o"
+"..\..\output\tm1638.o"
+"..\..\output\stepper.o"
+"..\..\output\serial.o"
 --library_type=microlib --strict --scatter "..\..\Output\Template.sct"
 --summary_stderr --info summarysizes --map --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers

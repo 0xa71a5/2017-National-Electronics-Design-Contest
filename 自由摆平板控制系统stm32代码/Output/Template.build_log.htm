@@ -1,0 +1,91 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: μVision V5.14.0.0
+Copyright (C) 2015 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: at1a5 at1a5, seu, LIC=UJWII-TSQVM-55CT2-9G7W0-FU8XK-ZA4BR
+ 
+Tool Versions:
+Toolchain:       MDK-ARM Standard  Version: 5.14.0.0
+Toolchain Path:  C:\Keil_v5\ARM\ARMCC\Bin
+C Compiler:      Armcc.exe V5.05 update 1 (build 106)
+Assembler:       Armasm.exe V5.05 update 1 (build 106)
+Linker/Locator:  ArmLink.exe V5.05 update 1 (build 106)
+Library Manager: ArmAr.exe V5.05 update 1 (build 106)
+Hex Converter:   FromElf.exe V5.05 update 1 (build 106)
+CPU DLL:         SARMCM3.DLL V5.14.0.0
+Dialog DLL:      DCM.DLL V1.13.1.0
+Target DLL:      CMSIS_AGDI.dll V1.21.0.0
+Dialog DLL:      TCM.DLL V1.14.4.0
+ 
+<h2>Project:</h2>
+E:\比赛\2017电设国赛\1-固件库例程\0-模板\Project\RVMDK（uv5）\BH-F407.uvprojx
+Project File Date:  07/11/2017
+
+<h2>Output:</h2>
+Build target '工程模板'
+compiling main.c...
+..\..\User\stepper.h(9): warning:  #1295-D: Deprecated declaration Stepper_Wait - give arg types
+  void Stepper_Wait();
+..\..\User\stepper.h(47): warning:  #1-D: last line of file ends without a newline
+  #endif 
+..\..\User\main.c(169): warning:  #1035-D: single-precision operand implicitly converted to double-precision
+                if(angle>lastAngle+0.3)
+..\..\User\main.c(194): warning:  #1035-D: single-precision operand implicitly converted to double-precision
+                        if(angle<lastAngle-0.1)
+..\..\User\main.c(218): warning:  #1035-D: single-precision operand implicitly converted to double-precision
+                        if(angle>lastAngle+0.1)
+..\..\User\main.c(158): warning:  #177-D: variable "minAngle" was declared but never referenced
+        float minAngle=1000;
+..\..\User\main.c(159): warning:  #177-D: variable "maxAngle" was declared but never referenced
+        float maxAngle=0;
+..\..\User\main.c(163): warning:  #177-D: variable "direction" was declared but never referenced
+        u8 direction=DIR_RIGHT;
+..\..\User\main.c(181): warning:  #177-D: variable "speed_" was declared but never referenced
+        int speed_=1000;
+..\..\User\main.c(263): warning:  #1035-D: single-precision operand implicitly converted to double-precision
+        float stepsToGo=(targetAngle-currentMotorAngle)/motorStepAngle;
+..\..\User\main.c(302): warning:  #1035-D: single-precision operand implicitly converted to double-precision
+        currentMotorAngle=currentMotorAngle + (float)stepsToGo_int*motorStepAngle;
+..\..\User\main.c(347): warning:  #1035-D: single-precision operand implicitly converted to double-precision
+                float stepsToGo=(targetMotorAngle-currentMotorAngle)/motorStepAngle;
+..\..\User\main.c(310): warning:  #177-D: variable "Alpha_n" was declared but never referenced
+        double Alpha_n=1,Alpha_n_1=1,Alpha_n_2=1;
+..\..\User\main.c(310): warning:  #177-D: variable "Alpha_n_1" was declared but never referenced
+        double Alpha_n=1,Alpha_n_1=1,Alpha_n_2=1;
+..\..\User\main.c(310): warning:  #177-D: variable "Alpha_n_2" was declared but never referenced
+        double Alpha_n=1,Alpha_n_1=1,Alpha_n_2=1;
+..\..\User\main.c(311): warning:  #177-D: variable "g" was declared but never referenced
+        double g=9.7947;
+..\..\User\main.c(312): warning:  #177-D: variable "deltT" was declared but never referenced
+        double deltT=1;
+..\..\User\main.c(313): warning:  #177-D: variable "r" was declared but never referenced
+        double r=0.952;
+..\..\User\main.c(314): warning:  #177-D: variable "B" was declared but never referenced
+        double B=0;
+..\..\User\main.c(317): warning:  #550-D: variable "lastTime" was set but never used
+        u32 lastTime=currentTime-1;
+..\..\User\main.c(321): warning:  #177-D: variable "sign_" was declared but never referenced
+        float sign_=1;
+..\..\User\main.c(402): warning:  #111-D: statement is unreachable
+        S_En(0);//Turn off motor
+..\..\User\main.c(424): warning:  #223-D: function "TIM7_Configuration" declared implicitly
+        TIM7_Configuration();
+..\..\User\main.c(425): warning:  #223-D: function "TIM6_Configuration" declared implicitly
+        TIM6_Configuration();
+..\..\User\main.c: 24 warnings, 0 errors
+linking...
+Program Size: Code=7700 RO-data=424 RW-data=56 ZI-data=3040  
+FromELF: creating hex file...
+"..\..\Output\Template.axf" - 0 Error(s), 24 Warning(s).
+
+<h2>Collection of Component include folders:</h2>
+  E:\比赛\2017电设国赛\1-固件库例程\0-模板\Project\RVMDK（uv5）\RTE
+  C:\Keil_v5\ARM\PACK\Keil\STM32F4xx_DFP\2.11.0
+
+<h2>Collection of Component Files used:</h2>
+</pre>
+</body>
+</html>
